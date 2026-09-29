@@ -15,6 +15,7 @@ import requests
 from dotenv import load_dotenv
 
 import config
+import notion_sync
 
 SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
 FIELD_MASK = ",".join(
@@ -174,6 +175,7 @@ def build_rows(results_by_id):
             "bucket": bucket,
             "rating": rating,
             "rating_count": rating_count,
+            "search_type": entry["business_type"],  # not written to CSV; used for the Notion Type
         }
         buckets[bucket].append(row)
 
@@ -200,7 +202,7 @@ def build_hot_leads(buckets, limit):
 
 def write_csv(path, rows, fieldnames):
     with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         for row in rows:
             writer.writerow(row)
@@ -226,9 +228,21 @@ def main():
         default=config.MAX_API_CALLS_PER_RUN,
         help="Hard cap on total API calls per run (default from config.py).",
     )
+    parser.add_argument(
+        "--no-notion",
+        action="store_true",
+        help="Skip pushing hot leads to the Notion 'Website Prospects' database.",
+    )
     args = parser.parse_args()
 
     api_key = load_api_key()
+    notion_token = notion_sync.load_token()
+    if not args.no_notion and not notion_token:
+        print(
+            "NOTION_TOKEN is not set. Add it to your local .env file, or pass --no-notion.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     results_by_id, call_count = run_scrape(api_key, args.max_pages, args.max_calls)
 
@@ -283,6 +297,20 @@ def main():
     print()
     print(f"CSVs written to output/ with timestamp {timestamp}")
     print(f"Latest hot leads copied to {latest_path}")
+
+    if args.no_notion:
+        print("Notion push skipped (--no-notion).")
+        return
+    print()
+    print("=== Notion ===")
+    try:
+        result = notion_sync.sync_hot_leads(hot_leads, notion_token)
+    except (notion_sync.NotionError, requests.RequestException) as exc:
+        print(f"Notion push failed: {exc}", file=sys.stderr)
+        print(f"CSVs are written. Retry the push without re-scraping: python notion_sync.py {hot_leads_path}",
+              file=sys.stderr)
+        sys.exit(1)
+    notion_sync.print_result(result)
 
 
 if __name__ == "__main__":
