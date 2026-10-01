@@ -201,7 +201,7 @@ def build_hot_leads(buckets, limit):
 
 
 def write_csv(path, rows, fieldnames):
-    with open(path, "w", newline="", encoding="utf-8") as f:
+    with open(path, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         for row in rows:

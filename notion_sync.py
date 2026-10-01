@@ -176,7 +176,7 @@ def main():
     token = load_token()
     if not token:
         sys.exit("NOTION_TOKEN is not set. Add it to your local .env file.")
-    with open(sys.argv[1], newline="", encoding="utf-8") as f:
+    with open(sys.argv[1], newline="", encoding="utf-8-sig") as f:
         leads = list(csv.DictReader(f))
     try:
         print_result(sync_hot_leads(leads, token))

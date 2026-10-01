@@ -304,7 +304,7 @@ def find_latest_hot_leads_csv(directory="output"):
 
 def load_place_ids_from_csv(path, top_n):
     place_ids = []
-    with open(path, newline="", encoding="utf-8") as f:
+    with open(path, newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         if "place_id" not in (reader.fieldnames or []):
             print(
